@@ -69,17 +69,25 @@ def pytorch_to_keras(
 
     stream.seek(0)
     onnx_model = onnx.load(stream)
-    if use_optimizer:
-        if use_optimizer is True:
-            optimizer2run = optimizer.get_available_passes()
-        else:
-            use_optimizer = set(use_optimizer)
-            optimizer2run = [x for x in optimizer.get_available_passes() if x in use_optimizer]
-        logger.info("Running optimizer:\n%s", "\n".join(optimizer2run))
-        onnx_model = optimizer.optimize(onnx_model, optimizer2run)
+    try:
+        from onnxsim import simplify
+        onnx_model, check = simplify(onnx_model)
+        assert check, "Simplified ONNX model could not be validated"
+        print("simplify ONNX model!")
+        onnx.save(onnx_model, "converted_simplify.onnx")
+    except:
+        if use_optimizer:
+            if use_optimizer is True:
+                optimizer2run = optimizer.get_available_passes()
+            else:
+                use_optimizer = set(use_optimizer)
+                optimizer2run = [x for x in optimizer.get_available_passes() if x in use_optimizer]
+            logger.info("Running optimizer:\n%s", "\n".join(optimizer2run))
+            onnx_model = optimizer.optimize(onnx_model, optimizer2run)
+
 
     k_model = onnx_to_keras(onnx_model=onnx_model, input_names=input_names,
-                            input_shapes=input_shapes, name_policy=name_policy,
-                            verbose=verbose, change_ordering=change_ordering)
+                        input_shapes=input_shapes, name_policy=name_policy,
+                        verbose=verbose, change_ordering=change_ordering)
 
     return k_model
